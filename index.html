@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>WeightTrack</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#fff}
+body{display:grid;place-items:center}.app{position:relative;width:min(430px,100vw);height:min(760px,100vh);min-height:620px;padding:22px 18px;overflow:auto;background:linear-gradient(160deg,#07152a,#102d43 55%,#06101d)}
+header{text-align:center}.brand{font-size:11px;font-weight:1000;letter-spacing:3px;color:#54eaff}h1{margin:5px 0 3px;font-size:38px}.sub{color:#9eb9c8;font-size:13px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 12px}.card{padding:15px;border:1px solid #28516a;border-radius:17px;background:#071625cc}.card.full{grid-column:1/-1}.label{font-size:10px;letter-spacing:1px;color:#8ea9b8;font-weight:900}.value{font-size:25px;font-weight:1000;margin-top:4px}.goalbar{height:9px;background:#0a1b29;border-radius:99px;overflow:hidden;margin-top:10px}.goalbar i{display:block;height:100%;width:0;background:#54eaff;border-radius:99px}
+.section{padding:16px;margin-top:10px;border:1px solid #28516a;border-radius:19px;background:#071625cc}.section h2{font-size:17px;margin:0 0 12px}
+.row{display:flex;gap:9px}.row input{flex:1}.input{width:100%;padding:13px;border-radius:13px;border:1px solid #315c72;background:#04101b;color:#fff;font-size:16px;outline:none}.input:focus{border-color:#54eaff}
+button{border:0;border-radius:13px;padding:13px 16px;font-weight:1000;font-size:14px;background:linear-gradient(135deg,#62edff,#1da5dc);color:#03121a}
+.secondary{background:#10283a;color:#dffaff;border:1px solid #28516a}.danger{background:#3b1720;color:#ffd9df;border:1px solid #73303d}
+.chart{height:170px;display:flex;align-items:flex-end;gap:5px;overflow:hidden;padding:12px 4px 0}.bar{flex:1;min-width:5px;border-radius:5px 5px 2px 2px;background:#54eaff;position:relative}.bar span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:8px;color:#9eb9c8;white-space:nowrap}
+.list{display:grid;gap:7px;max-height:170px;overflow:auto}.entry{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:11px;background:#0b2030}.entry small{color:#88a5b5}.empty{text-align:center;color:#7995a5;font-size:12px;padding:18px}
+.notice{font-size:11px;color:#7895a6;text-align:center;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">PHOENIX BY GAMES</div><h1>WEIGHTTRACK</h1><div class="sub">Your progress, in one place.</div>
+<div style="margin-top:10px"><select class="input" id="unitSelect" style="width:auto;min-width:130px">
+<option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option><option value="st">Stones (st)</option>
+</select></div></header>
+
+<div class="cards">
+<div class="card"><div class="label">CURRENT</div><div class="value" id="current">—</div></div>
+<div class="card"><div class="label">GOAL</div><div class="value" id="goal">—</div></div>
+<div class="card full"><div class="label">PROGRESS TO GOAL</div><div class="value" id="remaining">Set a goal</div><div class="goalbar"><i id="progress"></i></div></div>
+</div>
+
+<div class="section">
+<h2>🎯 Set your goal</h2>
+<div class="row"><input class="input" id="goalInput" type="number" step="0.1" min="0" placeholder="Goal weight"><button id="goalBtn">SAVE</button></div>
+</div>
+
+<div class="section">
+<h2>⚖️ Add today's weight</h2>
+<div class="row"><input class="input" id="weightInput" type="number" step="0.1" min="0" placeholder="Your weight"><button id="addBtn">ADD</button></div>
+</div>
+
+<div class="section">
+<h2>📈 Progress</h2>
+<div class="chart" id="chart"><div class="empty">Add a few entries to see your progress.</div></div>
+</div>
+
+<div class="section">
+<h2>📅 History</h2>
+<div class="list" id="history"></div>
+<button class="secondary" id="clearBtn" style="width:100%;margin-top:10px">CLEAR ALL DATA</button>
+</div>
+<div class="notice">Your data is stored locally on this device.</div>
+</div>
+
+<script>
+const KEY='weightTrackDataV2';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"goalKg":null,"entries":[]}');
+let unit=localStorage.getItem('weightTrackUnit')||'kg';
+
+const currentEl=document.getElementById('current'),goalEl=document.getElementById('goal'),
+remainingEl=document.getElementById('remaining'),progressEl=document.getElementById('progress'),
+weightInput=document.getElementById('weightInput'),goalInput=document.getElementById('goalInput'),
+unitSelect=document.getElementById('unitSelect');
+unitSelect.value=unit;
+
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function toKg(v){
+ if(unit==='lb')return v*0.45359237;
+ if(unit==='st')return v*6.35029318;
+ return v;
+}
+function fromKg(v){
+ if(unit==='lb')return v/0.45359237;
+ if(unit==='st')return v/6.35029318;
+ return v;
+}
+function fmt(v){return Number(fromKg(v)).toFixed(1)+' '+unit}
+function render(){
+ const entries=data.entries;
+ const current=entries.length?entries[entries.length-1].weightKg:null;
+ currentEl.textContent=current===null?'—':fmt(current);
+ goalEl.textContent=data.goalKg===null?'—':fmt(data.goalKg);
+
+ if(data.goalKg===null||current===null){
+  remainingEl.textContent='Set a goal';progressEl.style.width='0%';
+ }else{
+  const start=entries[0].weightKg,total=Math.abs(start-data.goalKg);
+  const done=total?Math.min(1,Math.abs(start-current)/total):1;
+  remainingEl.textContent=fmt(Math.abs(current-data.goalKg))+' remaining';
+  progressEl.style.width=(done*100).toFixed(0)+'%';
+ }
+ renderChart();renderHistory();
+}
+function renderChart(){
+ const el=document.getElementById('chart');el.innerHTML='';
+ const entries=data.entries.slice(-20);
+ if(!entries.length){el.innerHTML='<div class="empty">Add a few entries to see your progress.</div>';return}
+ const vals=entries.map(e=>e.weightKg),min=Math.min(...vals),max=Math.max(...vals),range=Math.max(.1,max-min);
+ vals.forEach(v=>{
+  const b=document.createElement('div');b.className='bar';
+  b.style.height=(28+((v-min)/range)*115)+'px';
+  b.innerHTML='<span>'+fromKg(v).toFixed(1)+'</span>';
+  el.appendChild(b);
+ });
+}
+function renderHistory(){
+ const el=document.getElementById('history');el.innerHTML='';
+ if(!data.entries.length){el.innerHTML='<div class="empty">No entries yet.</div>';return}
+ [...data.entries].reverse().forEach(e=>{
+  const div=document.createElement('div');div.className='entry';
+  div.innerHTML='<span><b>'+fmt(e.weightKg)+'</b></span><small>'+e.date+'</small>';
+  el.appendChild(div);
+ });
+}
+unitSelect.onchange=()=>{
+ unit=unitSelect.value;localStorage.setItem('weightTrackUnit',unit);
+ weightInput.placeholder='Weight in '+unit;
+ goalInput.placeholder='Goal in '+unit;
+ render();
+};
+document.getElementById('goalBtn').onclick=()=>{
+ const v=parseFloat(goalInput.value);if(!Number.isFinite(v)||v<=0)return;
+ data.goalKg=toKg(v);save();goalInput.value='';render();
+};
+document.getElementById('addBtn').onclick=()=>{
+ const v=parseFloat(weightInput.value);if(!Number.isFinite(v)||v<=0)return;
+ const d=new Date(),date=d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+ data.entries.push({weightKg:toKg(v),date});save();weightInput.value='';render();
+};
+document.getElementById('clearBtn').onclick=()=>{
+ if(confirm('Delete all weight entries and your goal?')){
+  data={goalKg:null,entries:[]};save();render();
+ }
+};
+weightInput.placeholder='Weight in '+unit;
+goalInput.placeholder='Goal in '+unit;
+render();
+</script>
+</body>
+</html>
